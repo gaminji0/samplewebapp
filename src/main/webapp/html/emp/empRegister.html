@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>従業員情報登録</title>
+
+<link type="text/css" rel="stylesheet" href="/ElService/css/ElDemo.css"/>
+<script type="text/javascript" src="/ElService/js/comm/ElComm.js"></script>
+<script type="text/javascript" src="/ElService/js/comm/jquery-3.4.1.min.js"></script>
+<script type="text/javascript" src="/ElService/js/comm/jquery.form.min.js"></script>
+
+<script type="text/javascript">
+	
+	var loadType = 0; // ページタイプ (登録 : 0, 修正 : 1)
+	
+	// ページ読み込み
+	$(document).ready(function () {
+		
+		$("#spn_title").text("登録");
+		
+		if(getParameterByName('type') != "" || getParameterByName('type') == "select") {
+			
+			loadType = 1;
+			$("#spn_title").text("照会");
+			$("#li_delete").css("display", "");
+			
+			selectEmpInfo(getParameterByName('empno')); // 従業員情報データ照会
+			
+		} else {
+			
+			getDeptList();
+			
+		}
+		
+	});
+	
+	// パラメータ取得
+	function getParameterByName(name) {
+		
+	    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+	    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+	        results = regex.exec(location.search);
+	    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+	    
+	}
+	
+	// ファイルダウンロード
+	function download(url, empno) {
+		
+		var form = $('<form></form>');
+		form.attr('action', url);
+		form.attr('method', 'post');
+		form.appendTo('body');
+		
+		var value = $("<input type='hidden' name='empno' value='" + empno + "'>");
+		form.append(value);
+		form.submit();
+		
+	}
+	
+	
+	/****************************** イベント関数 ******************************/	
+	
+	// ファイルダウンロードクリックイベント
+	function downloadBtn_click() {
+		
+		var empno = $("input[name=empno]").val();
+		download(CONTEXT_PATH + "DmoEmpDown.do", empno);
+		
+	}
+	
+	// ファイル削除ボタンクリックイベント
+	function deleteFile_click() {
+		
+		var deleteFileYN = confirm("ファイルを削除しますか?\n確認後、保存ボタンを押す必要があります。");
+		if(deleteFileYN == false) { return false; }
+		
+		$("#btn_deleteFile").css("display", "none");
+		$("span[id=spn_fileName]").text("");
+		$("input[name=fileName]").val("");
+		
+	}
+	
+	// 一覧ボタンクリックイベント
+	function listBtn_click() {
+		
+		moveLocation("html/emp/empList.html");
+		
+	}
+	
+	// 保存ボタンクリックイベント
+	function saveBtn_click() {
+		
+		//---------------------------------------------------------
+		// 入力検証
+		//---------------------------------------------------------
+		if($("input[name=empno]").val().length == 0) {
+			alert("社員番号が入力されていません。社員番号を入力してください。");
+			$("input[name=empno]").focus();
+			return false;
+		}
+		
+		if($("input[name=ename]").val().length == 0) {
+			alert("氏名が入力されていません。氏名を入力してください。");
+			$("input[name=ename]").focus();
+			return false;
+		}
+		
+		if($("input[name=job]").val().length == 0) {
+			alert("職種が入力されていません。職種を入力してください。");
+			$("input[name=job]").focus();
+			return false;
+		}
+		
+		if($("input[name=mgr]").val().length == 0) {
+			alert("直属の上司が入力されていません。直属の上司を入力してください。");
+			$("input[name=mgr]").focus();
+			return false;
+		}
+		
+		var datePattern = /^(19|20)\d{2}-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[0-1])$/;
+		var dateValidation = datePattern.test($("input[name=hiredate]").val());
+		if($("input[name=hiredate]").val().length > 0 && dateValidation == false) {
+			alert("入社日はyyyy-dd-mm形式で入力してください。");
+			return false;
+		}
+		
+		if($("input[name=sal]").val().length == 0) {
+			alert("給与が入力されていません。給与を入力してください。");
+			$("input[name=sal]").focus();
+			return false;
+		}
+		
+		if($("input[name=comm]").val().length == 0) {
+			alert("手当が入力されていません。手当を入力してください。");
+			$("input[name=comm]").focus();
+			return false;
+		}
+		
+		if($("select[name=deptno]").val().length == 0) {
+			alert("部門コードが選択されていません。部門コードを選択してください。");
+			return false;
+		}
+		
+		//---------------------------------------------------------
+		// 保存処理
+		//---------------------------------------------------------
+		var insertYN = confirm("従業員情報を保存しますか?");
+		if(insertYN == false) { return false; }
+		
+		if(loadType == 0) { // 登録後保存
+			
+			// JSONデータ作成
+			var empVo = { "elData" : { 
+										"empno"    : $("input[name=empno]"     ).val(),
+									 	"ename"    : $("input[name=ename]"     ).val(),
+									 	"job"      : $("input[name=job]"       ).val(),
+									 	"mgr"      : $("input[name=mgr]"       ).val(),
+									 	"hiredate" : $("input[name=hiredate]"  ).val(),
+									 	"sal"      : $("input[name=sal]"       ).val(),
+									 	"comm"     : $("input[name=comm]"      ).val(),
+									 	"deptno"   : $("select[name=deptno]"   ).val(),
+									 	"account"  : $("textarea[name=account]").val() 
+									 }
+						};
+			
+			// ファイルがアップロードされたかどうかをチェックする
+			var uploadFile = $("input[type=file]").val();
+			if( uploadFile != "" && uploadFile != null && uploadFile != "undefined" ) { // ファイルがアップロードされている場合
+				
+				$("form[name=detailForm]").ajaxForm({
+		            url      : CONTEXT_PATH + "DmoEmpUploadEmpFile.do",
+		            method   : "post",
+		            enctype  : "multipart/form-data",
+		            // dataType : "json",
+		            success  : function(data) {
+		            	
+						if( data.trim() == "" ) {
+							insertEmpInfo(empVo);
+						} else {
+							alert(data);
+						}		            	
+		            	
+		            	
+		            },
+		            error    : function() {
+		            	alert("登録処理中にエラーが発生しました。");
+		            }
+		        });
+
+		        $("form[name=detailForm]").submit(); // 実行
+				
+			} else { // ファイルがアップロードされていない場合
+				insertEmpInfo(empVo);
+			}
+
+		}
+		
+		if(loadType == 1) { // 修正後の保存
+		
+			var form = $('form')[0];
+			var formData = new FormData(form);
+			$.ajax({
+				url         : CONTEXT_PATH + 'DmoEmpUpdateUploadEmpFile.do',
+				processData : false,
+				contentType : false,
+				data        : formData,
+				type        : 'POST',
+				success     : function(result) {
+					if( result.trim() == "" ) {
+						alert("社員情報が修正されました。");
+					} else {
+						alert(result);
+					}
+					
+					moveLocation("html/emp/empRegister.html?type=select&empno=" + $("input[name=empno]").val());
+				},
+				error       : function() {
+					alert("修正処理中にエラーが発生しました。");
+				}
+			});
+		
+		}
+		
+	}
+	
+	// 削除ボタンクリックイベント
+	function deleteBtn_click() {
+		
+		var empno = $("input[name=empno]").val();
+		
+		var deleteYN = confirm(empno + " 社員情報を削除しますか?");
+		if(deleteYN == false) { return false; }
+		
+		deleteEmpInfo(empno);
+		
+	}
+	
+	// 初期化ボタンクリックイベント
+	function restoreBtn_click() {
+		
+		if(loadType == 0) { // 登録
+			
+			$("input[name=empno]").val("");
+			$("input[name=ename]").val("");
+			$("input[name=job]").val("");
+			$("input[name=mgr]").val("");
+			$("input[name=hiredate]").val("");
+			$("input[name=sal]").val("");
+			$("input[name=comm]").val("");
+			$("select[name=deptno]").val("");
+			$("textarea[name=account]").val("");
+			$("input[type=file]").val("");
+			
+		}
+		
+		if(loadType == 1) { // 修正
+			
+			$("input[name=ename]").val( $("input[name=tmpEname]").val() );
+			$("input[name=job]").val( $("input[name=tmpJob]").val() );
+			$("input[name=mgr]").val( $("input[name=tmpMgr]").val() );
+			$("input[name=hiredate]").val( $("input[name=tmpHiredate]").val() );
+			$("input[name=sal]").val( $("input[name=tmpSal]").val() );
+			$("input[name=comm]").val( $("input[name=tmpComm]").val() );
+			$("select[name=deptno]").val($( "input[name=tmpDeptno]").val() );
+			$("textarea[name=account]").val( $("textarea[name=tmpAccount]").val() );
+			$("input[type=file]").val("");
+			
+		}
+		
+	}
+	
+	
+	/****************************** ajax 関数 ******************************/	
+	
+	// 社員詳細情報の取得
+	function selectEmpInfo(empno) {
+		
+		var requestJSON = JSON.stringify({"elData":{"empno":empno}});
+		executeAjax(CONTEXT_PATH + "DmoEmpUpdView.pwkjson", requestJSON, selectEmpInfo_callback);
+		
+	}
+	
+	// 部門リストの取得
+	function getDeptList() {
+		
+		var requestJSON = JSON.stringify({"elData":{}});
+		executeAjax(CONTEXT_PATH + "DmoEmpView.pwkjson", requestJSON, getDeptList_callback);
+		
+	}
+	
+	// 社員情報の保存
+	function insertEmpInfo(empVo) {
+		
+		console.log("- mode : " + loadType);
+		console.log(empVo);
+		var requestJSON = JSON.stringify(empVo);
+		executeAjax(CONTEXT_PATH + "DmoEmpIns.pwkjson", requestJSON, insertEmpInfo_callback);
+	
+	}
+	
+	// 社員情報の削除
+	function deleteEmpInfo(empno) {
+		
+		var requestJSON = JSON.stringify({"elData":{"empno":empno}});
+		executeAjax(CONTEXT_PATH + "DmoEmpDel.pwkjson", requestJSON, deleteEmpInfo_callback);
+		
+	}
+	
+	// 파일 삭제
+	function deleteFile(empno) {
+		
+		var requestJSON = JSON.stringify({"elData":{"empno":empno}});
+		executeAjax(CONTEXT_PATH + "DmoEmpDeleteUploadEmpFile.pwkjson", requestJSON, deleteFile_callback);
+		
+	}
+	
+	
+	/****************************** コールバック関数 ******************************/
+	
+	// 従業員詳細情報コールバック
+	function selectEmpInfo_callback(data) {
+		
+		console.log(data);
+		var elHeader  = data.elHeader;  // 応答メッセージのelHeader
+		//var empFileVo = data.empFileVo; // 添付ファイル情報
+		
+		if(elHeader.resSuc == true) {
+			
+			//-------------------------------------------------
+			// 従業員情報をテーブルにセット
+			//-------------------------------------------------
+			var empVo = data.elData.empVo;
+			$("input[name=empno]").val(empVo.empno);
+			$("input[name=ename]").val(empVo.ename);
+			$("input[name=job]").val(empVo.job);
+			$("input[name=mgr]").val(empVo.mgr);
+			$("input[name=hiredate]").val(empVo.hiredate);
+			$("input[name=sal]").val(empVo.sal);
+			$("input[name=comm]").val(empVo.comm);
+			$("textarea[name=account]").val(empVo.account);
+			if(empVo.fileName != "" && empVo.fileName != undefined ) {
+				$("input[name=fileName]").val(empVo.fileName);			
+			}
+			
+			var deptList = data.elData.deptVoList;
+			for(var idx in deptList) {
+				$("select[name=deptno]").append("<option value='" + deptList[idx].deptno + "'>" + deptList[idx].dname + "</option>");
+			}
+			$("select[name=deptno]").val(empVo.deptno);
+			
+			//-------------------------------------------------
+			// コンポーネントオプション変更
+			//-------------------------------------------------
+			$("input[name=empno]").attr("readonly", true);
+			$("input[name=empno]").attr("class", "essentiality");
+			
+			//-------------------------------------------------
+			// 検索条件維持
+			//-------------------------------------------------
+			$("input[name=tmpEname]").val(empVo.ename);
+			$("input[name=tmpJob]").val(empVo.job);
+			$("input[name=tmpMgr]").val(empVo.mgr);
+			$("input[name=tmpHiredate]").val(empVo.hiredate);
+			$("input[name=tmpSal]").val(empVo.sal);
+			$("input[name=tmpComm]").val(empVo.comm);
+			$("input[name=tmpDeptno]").val(empVo.deptno);
+			$("textarea[name=tmpAccount]").val(empVo.account);
+			
+			//-------------------------------------------------
+			// 添付ファイル情報
+			//-------------------------------------------------
+			if(empVo.fileName != "" && empVo.fileName != undefined ) {
+				$("#btn_deleteFile").css("display", "");
+				$("span[id=spn_fileName]").html("&nbsp;&nbsp;&nbsp;" + empVo.fileName);
+			}
+			
+			
+		} else {
+			
+			exceptionAlert("従業員詳細情報照会", elHeader.resCode, elHeader.resMsg);
+			
+		}
+	}
+	
+	// 部門リスト照会コールバック
+	function getDeptList_callback(data) {
+		
+		console.log(data);
+		var elHeader = data.elHeader; // 応答メッセージのelHeader
+		
+		if(elHeader.resSuc == true) {
+			
+			var deptList = data.elData.deptVoList;
+			for(var idx in deptList) {
+				$("select[name=deptno]").append("<option value='" + deptList[idx].deptno + "'>" + deptList[idx].dname + "</option>");
+			}
+			
+		} else {
+			
+			exceptionAlert("部門リスト照会", elHeader.resCode, elHeader.resMsg);
+			
+		}
+
+	}
+	
+	// 従業員情報登録コールバック
+	function insertEmpInfo_callback(data) {
+		// console.log(data);
+		var elHeader = data.elHeader; // 応答メッセージのelHeader
+		
+		if(elHeader != null && elHeader != "" && elHeader != "undefined") {
+			
+			if(elHeader.resSuc == true) {
+				// 下部で処理
+			} else {
+				exceptionAlert("登録", elHeader.resCode, elHeader.resMsg);
+				return false;
+			}
+			
+		}		
+		alert("従業員情報が登録されました。");
+		moveLocation("html/emp/empRegister.html?type=select&empno=" + $("input[name=empno]").val());
+		
+	}
+	
+	// 従業員情報削除コールバック
+	function deleteEmpInfo_callback(data) {
+		
+		// console.log(data);
+		var elHeader = data.elHeader; // 応答メッセージのelHeader
+		
+		if(elHeader != null && elHeader != "" && elHeader != "undefined") {
+			
+			if(elHeader.resSuc == true) {
+				// 下部で処理
+			} else {
+				exceptionAlert("削除", elHeader.resCode, elHeader.resMsg);
+				return false;
+			}
+			
+		}
+		
+		alert("従業員情報が削除されました。");
+		moveLocation("html/emp/empList.html");
+		
+	}
+	
+	// ファイル削除コールバック
+	function deleteFile_callback(data) {
+		
+		console.log(data);
+		
+	}
+	
+</script>
+
+</head>
+<body style="text-align:center; margin:0 auto; display:inline; padding-top:100px;">
+
+	<form name="detailForm" enctype="multipart/form-data">
+	<div id="content_pop">
+		<!-- TITLE SECTION -->
+		<div id="title">
+			<ul>
+				<li><img src="/ElService/images/sample/rte/title_dot.gif"> 従業員情報 <span id="spn_title"></span></li>
+			</ul>
+		</div>
+
+		<!-- TABLE SECTION -->
+		<div id="table">	
+			<table width="100%" border="1" cellpadding="0" cellspacing="0" bordercolor="#D3E2EC" bordercolordark="#FFFFFF" style="BORDER-TOP:#C2D0DB 2px solid; BORDER-LEFT:#ffffff 1px solid; BORDER-RIGHT:#ffffff 1px solid; BORDER-BOTTOM:#C2D0DB 1px solid; border-collapse: collapse;">
+				<colgroup>
+					<col width="150">
+					<col width="">
+				</colgroup>
+				<tr>
+					<td class="tbtd_caption">* 社員番号</td>
+					<td class="tbtd_content" colspan='2'>
+						<input type='text' name="empno" maxlength="4" class="txt" value=""/>	
+					</td>			
+				</tr>
+				<tr>
+					<td class="tbtd_caption">* 氏名</td>
+						<td class="tbtd_content" colspan='2'>
+							<input type='text' name="ename" maxlength="10" class="txt" value=""/>
+						</td>
+						
+				</tr>
+				<tr>
+					<td class="tbtd_caption">* 職業</td>
+					<td class="tbtd_content" colspan='2'>
+						<input type='text' name="job" maxlength="10" class="txt" value=""/>
+					</td>
+				</tr>	
+				<tr>
+					<td class="tbtd_caption">* 上司</td>
+					<td class="tbtd_content" colspan='2'>
+						<input type='text' name="mgr" maxlength="4" class="txt" value=""/>			
+					</td>
+				</tr>	
+				<tr>
+					<td class="tbtd_caption">入社日</td>
+					<td class="tbtd_content" colspan='2'>
+						<input type='text' name="hiredate" maxlength="20" class="txt" value=""/>	
+							
+					</td>
+				</tr>
+				<tr>
+					<td class="tbtd_caption">* 給与</td>
+					<td class="tbtd_content" colspan='2'>
+						<input type='text' name="sal" maxlength="10" class="txt" value=""/>
+					</td>
+				</tr>	
+				<tr>
+					<td class="tbtd_caption">* 手当</td>
+					<td class="tbtd_content" colspan='2'>
+						<input type='text' name="comm" maxlength="10" class="txt" value=""/>				
+					</td>
+				</tr>						
+				<tr>
+					<td class="tbtd_caption">* 部門コード</td>
+					<td class="tbtd_content" colspan='2'>
+						<select name="deptno" class="use">
+							<option value="" selected>-全て-</option>
+						</select>		
+					</td>
+				</tr>	
+				<tr>
+					<td class="tbtd_caption">説明</td>
+					<td class="tbtd_content" colspan='2'>
+						<textarea name="account" class="txt" cols="65" rows="5"></textarea>								
+					</td>
+				</tr>
+				<tr>
+					<td class="tbtd_caption">添付ファイル</td>
+					<td class="tbtd_content">
+						<input type="file" size="25" name="inputFileData">												
+					</td>
+					<td class="tbtd_content" width ='300'>
+						<a href='javascript:downloadBtn_click();'><span id='spn_fileName'></span></a> 	
+						<input type="hidden" name="fileName">
+						<span id="btn_deleteFile" class="btn_blue_l" style="display:none;"><a href="javascript:deleteFile_click();">ファイル削除</a><img src="/ElService/images/sample/rte/btn_bg_r.gif" style="margin-left:6px;"></span>				
+					</td>
+				</tr>	
+			</table>
+    	</div>
+		
+		<!-- BUTTON SECTION -->
+		<div id="sysbtn">
+		<ul>
+			<li><span class="btn_blue_l"><a href="javascript:listBtn_click();">一覧</a><img src="/ElService/images/sample/rte/btn_bg_r.gif" style="margin-left:6px;"></span></li>
+			<li><span class="btn_blue_l"><a href="javascript:saveBtn_click();">保存</a><img src="/ElService/images/sample/rte/btn_bg_r.gif" style="margin-left:6px;"></span></li>
+			<li id="li_delete" style="display:none;"><span class="btn_blue_l"><a href="javascript:deleteBtn_click();">削除</a><img src="/ElService/images/sample/rte/btn_bg_r.gif" style="margin-left:6px;"></span></li>
+			<li><span class="btn_blue_l"><a href="javascript:restoreBtn_click();">リセット</a><img src="/ElService/images/sample/rte/btn_bg_r.gif" style="margin-left:6px;"></span></li></ul>
+		</div>
+	</div>
+	</form>	
+	
+	<input type="hidden" name="tmpEname" value=""/>
+	<input type="hidden" name="tmpJob" value=""/>
+	<input type="hidden" name="tmpMgr" value=""/>
+	<input type="hidden" name="tmpHiredate" value=""/>
+	<input type="hidden" name="tmpSal" value=""/>
+	<input type="hidden" name="tmpComm" value=""/>
+	<input type="hidden" name="tmpDeptno" value=""/>
+	<textarea style="display:none;" name="tmpAccount"></textarea>
+
+	<!-- 検索条件の維持 -->
+	<input type="hidden" name="scEname" value=""/>
+	<input type="hidden" name="scDname" value=""/>
+	<input type="hidden" name="scDeptno" value=""/>
+	<input type="hidden" name="pageIndex" value=""/>
+
+</body>
+</html>

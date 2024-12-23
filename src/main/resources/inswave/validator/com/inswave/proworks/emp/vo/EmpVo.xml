@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE form-validation PUBLIC "-//Apache Software Foundation//DTD Commons Validator Rules Configuration 1.1//EN" "http://jakarta.apache.org/commons/dtds/validator_1_1.dtd">
+<form-validation>
+  <formset>
+    <form name="DmoEmpIns_com.inswave.proworks.emp.vo.EmpVo">
+      <field depends="required" property="empno">
+        <arg0 key="従業員番号" resource="false" />
+      </field>
+      <field depends="required" property="ename">
+        <arg0 key="氏名" resource="false" />
+      </field>
+      <field depends="required" property="job">
+        <arg0 key="職業" resource="false" />
+      </field>
+      <field depends="required" property="mgr">
+        <arg0 key="直属の上司" resource="false" />
+      </field>
+      <field depends="required" property="sal">
+        <arg0 key="給与" resource="false" />
+      </field>
+      <field depends="required" property="deptno">
+        <arg0 key="部門" resource="false" />
+      </field>
+    </form>
+    <form name="DmoEmpUpd_com.inswave.proworks.emp.vo.EmpVo">
+      <field depends="required" property="empno">
+        <arg0 key="従業員番号" resource="false" />
+      </field>
+      <field depends="required" property="ename">
+        <arg0 key="氏名" resource="false" />
+      </field>
+      <field depends="required" property="job">
+        <arg0 key="職業" resource="false" />
+      </field>
+      <field depends="required" property="mgr">
+        <arg0 key="直属の上司" resource="false" />
+      </field>
+      <field depends="required" property="sal">
+        <arg0 key="給与" resource="false" />
+      </field>
+      <field depends="required" property="deptno">
+        <arg0 key="部門" resource="false" />
+      </field>
+    </form>
+  </formset>
+</form-validation>

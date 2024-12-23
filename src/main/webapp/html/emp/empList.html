@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>従業員情報一覧</title>
+
+<link type="text/css" rel="stylesheet" href="/ElService/css/ElDemo.css"/>
+<script type="text/javascript" src="/ElService/js/comm/ElComm.js"></script>
+<script type="text/javascript" src="/ElService/js/comm/jquery-3.4.1.min.js"></script>
+
+<script type="text/javascript">
+	
+	// グローバル変数の宣言
+	var initLoadStatus = "";
+	var selectPageIdx = 1;
+	
+	// ページのロード
+	$(document).ready(function() {
+		
+		initLoadStatus = "Y";
+		
+		selectEmpList(); // 初期データの取得
+		
+	});
+		
+	// テーブルデータの初期化
+	function initTableRow() {
+		
+		$('#tbl_empList > tbody:last').empty();
+		
+	}
+	
+	// 部門SelectBoxのオプション初期化
+	function initSbxOpt() {
+		
+		$('select[name=scDeptno] option').each(function() { 
+			if(this.value != '') { this.remove(); }
+		});
+
+		// $("select[name=scDeptno] option").remove();
+		
+	}
+	
+	// 総件数、ページ情報の初期化
+	function initSpnCount() {
+		
+		$("#spn_listCnt").text(""); 
+		$("#spn_pageIdx").text(""); 
+		$("#spn_pageCnt").text("");
+		
+	}
+	
+	// ページリストの初期化
+	function initPageList() {
+		
+		if($("div[id=innerPaging]") != null) { $("div[id=innerPaging]").remove(); }
+		
+	}
+	
+	// ページング処理
+	function setPageList(selectPageIdx, pageCnt) {
+		
+		//---------------------------------------------------
+		// first    : 開始ページ
+		// backward : 前へ
+		// start    : 現在表示されている開始ページ
+		// end      : 現在表示されている最終ページ
+		// forward  : 次へ
+		// last     : 最終ページ
+		//---------------------------------------------------
+		var first    = 1;
+		var backward = 0;
+		var start    = ((Math.floor((selectPageIdx - 1) / 10))) * 10 + 1;
+		var end      = ((Math.floor((selectPageIdx-1) / 10)) + 1) * 10;
+		var forward  = 0;
+		var last     = pageCnt;
+		
+		if(end > last) { end = last; }
+		
+		if(selectPageIdx > first) { backward = selectPageIdx - 1 } else { backward = first; }
+		if(selectPageIdx < pageCnt) { forward = selectPageIdx + 1; } else { forward = last; }
+		
+		var list = "";
+		list += "	<div id='innerPaging''>"
+		list += "	 	 <a href='javascript:pageList_click(" + first + ");'><img src='/ElService/images/sample/el/btn_page_pre10.gif' border='0'/></a>&nbsp;";
+		list += "	 	 <a href='javascript:pageList_click(" + backward + ");'><img src='/ElService/images/sample/el/btn_page_pre1.gif' border='0'/></a>&nbsp;";
+		for(var i=start; i<=end; i++) {
+			if(selectPageIdx == i ) {
+				list += "&nbsp;<strong>" + i + "</strong>&nbsp;";
+			} else {
+				list += "&nbsp;<a href='javascript:pageList_click(" + i + ");'>" + i + "</a>&nbsp;";			
+			}
+		}
+		list += "	 	 <a href='javascript:pageList_click(" + forward + ");'><img src='/ElService/images/sample/el/btn_page_next1.gif'  border='0'/></a>&nbsp;";
+		list += "	 	 <a href='javascript:pageList_click(" + end + ");'><img src='/ElService/images/sample/el/btn_page_next10.gif' border='0'/></a>";
+		list += "	</div>";
+		$("div[id=paging]").append(list);
+				
+	}
+	
+	
+	/****************************** イベント関数 ******************************/	
+	
+	// ログアウトボタンクリックイベント
+	function logoutBtn_click() {
+		
+		var userId = getCookie("userId");
+		logout(userId);
+		
+	}
+	
+	// 検索ボタンクリックイベント
+	function searchBtn_click() {
+		
+		initLoadStatus = "N";
+		selectPageIdx = 1;
+		
+		var scEname = $("input[name=scEname]").val();
+		var scDname = $("input[name=scDname]").val();
+		var scDeptno = parseInt($("select[name=scDeptno]").val());
+		var pageSize = parseInt($("select[name=pageSize]").val());
+		
+		selectEmpList(scEname, scDname, scDeptno, pageSize, selectPageIdx);
+		
+	}
+	
+	// 従業員番号クリックイベント
+	function empno_click(empno) {
+		
+		// フォーム作成
+		var form = $('<form></form>');
+		form.attr('action', "empRegister.html");
+		form.attr('method', 'get');
+		form.appendTo('body');
+		
+		var paramType  = $("<input type='hidden' name='type' value='select'>");
+		var paramEmpno = $("<input type='hidden' name='empno' value='" + empno + "'>");
+		
+		form.append(paramType).append(paramEmpno);
+		form.submit();
+		
+	}
+
+	// 従業員番号クリックイベント
+	function empno_do_click(empno) {
+		
+		// フォーム作成
+		var form = $('<form></form>');
+		form.attr('action', "/ElService/DmoEmpUpdViewJsp.do");
+		form.attr('method', 'get');
+		form.appendTo('body');
+		
+		var paramEmpno = $("<input type='hidden' name='empno' value='" + empno + "'>");
+		
+		form.append(paramEmpno);
+		form.submit();
+		
+	}
+	
+	// ページリストの番号クリックイベント
+	function pageList_click(pageIndex) {
+		
+		initLoadStatus = "N";
+		selectPageIdx = pageIndex;
+		
+		var scEname = $("input[name=scEname]").val();
+		var scDname = $("input[name=scDname]").val();
+		var scDeptno = parseInt($("select[name=scDeptno]").val());
+		var pageSize = parseInt($("select[name=pageSize]").val());
+		
+		selectEmpList(scEname, scDname, scDeptno, pageSize, pageIndex);
+		
+	}
+	
+	// 登録ボタンクリックイベント
+	function registerBtn_click() {
+		
+		moveLocation("html/emp/empRegister.html");
+		
+	}
+	
+	/****************************** ajaxファンクション ******************************/
+	
+	// 従業員リスト照会
+	function selectEmpList(scEname, scDname, scDeptno, pageSize, pageIndex) {
+		
+		if(initLoadStatus != "N") { initSbxOpt(); }
+		initTableRow();
+		initSpnCount();
+		initPageList();
+		
+		var requestJSON = JSON.stringify({"elData":{"scEname":scEname,"scDname":scDname,"scDeptno":scDeptno,"pageSize":pageSize,"pageIndex":pageIndex}});
+		executeAjax(CONTEXT_PATH + "DmoEmpList.pwkjson", requestJSON, selectEmpList_callback);
+		
+	}
+	
+	// ログアウト
+	function logout(userId) {
+		
+		var requestJSON = JSON.stringify({"elData":{"id":userId}});
+		executeAjax(CONTEXT_PATH + "CmmLoginFrm.pwkjson", requestJSON, logout_callback);
+		
+	}
+	
+	
+	/****************************** コールバックファンクション ******************************/
+	
+	//従業員リスト照会コールバック
+	function selectEmpList_callback(data) {
+		
+		console.log(data);
+		var elHeader = data.elHeader; // レスポンスヘッダelHeader
+		var elData = data.elData;
+		
+		if(elHeader != "" && elHeader != null && elHeader != "undefined") {
+			
+			if(elHeader.resSuc == true) {
+				
+				var rowIdx  = 1;
+				var listCnt = elData.totalCount;         // 総件数
+				var pageCnt = elData.totalPageCount;     // 総ページ数
+				
+				//------------------------------------------
+				// 部署SelectBoxオプション設定
+				//------------------------------------------
+				if(initLoadStatus != "N") {
+					var deptList = elData.deptVoList;
+					for(var idx in deptList) {
+						$("select[name=scDeptno]").append("<option value='" + deptList[idx].deptno + "'>" + deptList[idx].dname + "</option>");
+					}
+				}
+				
+				//------------------------------------------
+				// 総件数、ページ情報設定
+				//------------------------------------------
+				$("#spn_listCnt").text(listCnt); 
+				$("#spn_pageIdx").text(selectPageIdx); 
+				$("#spn_pageCnt").text(pageCnt);
+				
+				//------------------------------------------
+				// 動的テーブル描画
+				//------------------------------------------
+				var empList = elData.empVoList;
+				for(var idx in empList) {
+					var row = "";
+					row =  "<tr>";
+					row += "	<td align='center' class='listtd'><a href='javascript:empno_do_click(" + empList[idx].empno + ");'>" + rowIdx + "</a></td>";
+					row += "	<td align='center' class='listtd'><a href='javascript:empno_click(" + empList[idx].empno + ");'>" + empList[idx].empno + "</a></td>";
+					row += "	<td align='left'   class='listtd'>" + empList[idx].ename + "</td>";
+					row += "	<td align='center' class='listtd'>" + empList[idx].job + "</td>";
+					row += "	<td align='center' class='listtd'>" + empList[idx].hiredate + "</td>";
+					row += "	<td align='center' class='listtd'>" + empList[idx].dname + "</td>";
+					row += "</tr>";
+					$('#tbl_empList > tbody:last').append(row);
+					rowIdx += 1;
+				}
+				
+				//------------------------------------------
+				// ページング処理
+				//------------------------------------------
+				setPageList(selectPageIdx, pageCnt);
+				
+			} else {
+				
+				exceptionAlert("リスト照会", elHeader.resCode, elHeader.resMsg);
+				
+			}
+			
+		}
+		
+	}
+	
+	// ログアウトコールバック
+	function logout_callback(data) {
+		
+		setCookie("userId", "", -1);
+		moveLocation("html/cmmn/loginFrm.html");
+		
+	}
+	
+	function tcpClientTest(){
+		//var requestJSON = JSON.stringify({"elData":{}});
+		
+		var scDname = $("input[name=scDname]").val();
+		
+		var requestJSON = JSON.stringify({"elData":{"deptno": scDname }});
+		executeAjax(CONTEXT_PATH + "DmoTcpSendTest.pwkjson", requestJSON, tcpClientTest_callback);
+	}
+
+	function tcpClientTest_callback(data) {
+		alert(JSON.stringify(data));
+	}
+
+</script>
+</head>
+<body style="text-align:center; margin:0 auto; display:inline; padding-top:100px;">
+	<div id="content_pop">
+		<!-- TITLE_SECTION -->	
+		<div id="title">					
+			<table width="100%" border="0" cellpadding="0" cellspacing="0">		  
+				<tr>
+					<td class="title_l">
+						<img src="/ElService/images/sample/rte/title_dot.gif"> 従業員一覧
+					</td>							
+					<td class="title_r">
+						<a href="javascript:logoutBtn_click();">ログアウト</a>
+					</td>
+				</tr>
+			</table>
+		</div>
+		
+		<!-- SEARCH SECTION -->
+		<div id="search">
+			<table class="search_table" width="100%" border="0" cellpadding="0" cellspacing="0">  
+				<tr>
+					<td class="search_l" width='485'>
+						名前: <input type="text" name="scEname" class="txt" size='10'/>
+						部署名: <input type="text" name="scDname" class="txt" size='10'/>
+						部署: 
+						<select name="scDeptno" class="use">
+							<option value="" selected>-全て-</option>
+						</select>
+				  
+					</td>	
+					<td class="search_m" width='150'>
+						ページサイズ: 
+						<select name="pageSize"> 							   
+					    	<option value="5">5</option>
+							<option value="10" selected>10</option>
+							<option value="15">15</option>
+							<option value="20">20</option>
+							<option value="30">30</option>
+							<option value="50">50</option>
+							<option value="100">100</option>				
+					</select>				    
+					</td>	
+					<td class="search_r" width='45'>
+				    	<span class="btn_blue_l"><a href="javascript:searchBtn_click();">検索</a><img src="/ElService/images/sample/rte/btn_bg_r.gif" style="margin-left:6px;"></span>
+					</td>
+				</tr>
+			</table>	
+		</div>
+		
+		<!-- PAGEINFO SECTION -->
+		<div id="pageInfo">
+			<table width="100%" border="0" cellpadding="0" cellspacing="0">	  
+				<tr>
+					<td align="left" class="listtd">
+						■ 合計 <span id="spn_listCnt"></span> 件
+					</td>			
+					<td align="right" class="listtd">
+						■ <span id="spn_pageIdx"></span> / <span id="spn_pageCnt"></span>ページ
+					</td>
+				</tr>
+			</table>
+		</div>	
+			 	
+		<!-- TABLE SECTION -->
+		<div id="table">
+			<table id="tbl_empList" width="100%" border="0" cellpadding="0" cellspacing="0">
+				<colgroup>
+					<col width="40">				
+					<col width="100">
+					<col width="150">
+					<col width="80">
+					<col width="">
+					<col width="60">
+				</colgroup>		  
+				<tr>
+					<th align="center">No</th>
+					<th align="center">社員番号</th>
+					<th align="center">名前</th>
+					<th align="center">職種</th>
+					<th align="center">入社日</th>
+					<th align="center">部署</th>
+				</tr>
+				<tbody></tbody>
+			</table>
+		</div>
+		
+		<!-- LIST SECTION -->
+		<div id="paging">
+
+		</div>
+	
+	<div id="sysbtn1">
+		<ul>
+		<div id="sysbtn"><ul>
+		<li><span class="btn_blue_l"><a href="javascript:registerBtn_click();">登録</a><img src="/ElService/images/sample/rte/btn_bg_r.gif" style="margin-left:6px;"></span></li></ul>
+		
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		<a href="javascript:tcpClientTest();">TCPクライアントテスト</a>
+		
+		</div>
+		</ul>
+	</div>
+	</div>
+	
+</body>
+</html>

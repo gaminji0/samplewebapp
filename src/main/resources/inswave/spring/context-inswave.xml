@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+						http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd
+						http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+						http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd">
+
+	<mvc:interceptors>
+		<mvc:interceptor>
+			<mvc:mapping path="/**" />
+			<bean class="com.inswave.elfw.intercept.ElHandlerInterceptorAdapter" />
+		</mvc:interceptor>
+	</mvc:interceptors>
+
+	<bean id="jdbcInterceptor" class="com.inswave.elfw.db.sql.ElJdbcInterceptor">
+		<property name="sqlInjectionPatternInterceptor" ref="sqlInjectionPatternInterceptor" />
+		<property name="sqlHandlerInterceptor" ref="sqlHandlerInterceptor" />
+	</bean>
+
+	<aop:config>
+		<aop:pointcut id="jdbcPointcut" expression="execution(* *..*DataSource.*(..))" />
+		<aop:advisor advice-ref="jdbcInterceptor" pointcut-ref="jdbcPointcut" />
+	</aop:config>
+
+	<bean id="sqlInjectionPatternInterceptor"
+		class="com.inswave.elfw.db.sql.impl.ElSqlInjectionPatternInterceptorImpl" />
+
+	<bean id="sqlHandlerInterceptor"
+		class="com.inswave.elfw.db.sql.impl.ElSqlHandlerInterceptorImpl" />
+
+	<!-- sqlSessionFactory setup for MYBATIS Database Layer -->
+	<bean id="elSqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="datasourceElCoreXA" />
+		<property name="mapperLocations"
+			value="classpath:/inswave/sqlmap/el/*_${Globals.DbType}_MyBatis.xml" />
+	</bean>
+
+	<bean id="datasourceElCoreXA" class="org.springframework.jndi.JndiObjectFactoryBean"
+		primary="true">
+		<property name="jndiName" value="${EL_DATASOURCE_NAME}" />
+		<property name="resourceRef" value="true" />
+	</bean>
+
+
+	<bean name="loginProcess" class="com.inswave.elfw.login.LoginProcessor" />
+	<bean name="elUserService" class="com.inswave.elfw.service.impl.ElUserServiceImpl" />
+	<bean name="elUserDAO" class="com.inswave.elfw.service.impl.ElUserDAO" />
+
+	<bean id="serviceInterceptor" class="com.inswave.elfw.intercept.ElServiceInterceptor">
+	</bean>
+
+	<aop:config>
+		<aop:pointcut id="servicePointcut"
+			expression="execution(* com.inswave.proworks..impl.*Impl.*(..))" />
+		<aop:advisor advice-ref="serviceInterceptor" pointcut-ref="servicePointcut" />
+	</aop:config>
+
+	<bean id="jsonMapper" class="com.inswave.elfw.view.ElMappingJacksonObjectMapper">
+		<property name="excludeNullYn" value="Y" />
+		<property name="excludeNames">
+			<map>
+				<!--  entry key="totalCount" value="totalCount"/ -->
+				<entry key="startRowIndex" value="startRowIndex" />
+				<entry key="pageUnit" value="pageUnit" />
+				<entry key="pageSize" value="pageSize" />
+				<entry key="pageIndex" value="pageIndex" />
+			</map>
+		</property>
+	</bean>
+
+	<bean id="xmlMarshaller" class="org.springframework.oxm.xstream.XStreamMarshaller">
+		<property name="autodetectAnnotations" value="true" />
+		<property name="streamDriver">
+			<bean class="com.thoughtworks.xstream.io.xml.XppDriver">
+				<constructor-arg>
+					<!-- bean class="com.thoughtworks.xstream.io.xml.XmlFriendlyReplacer" -->
+					<bean class="com.thoughtworks.xstream.io.xml.XmlFriendlyNameCoder">
+						<constructor-arg index="0" value="__" />
+						<constructor-arg index="1" value="_" />
+					</bean>
+				</constructor-arg>
+			</bean>
+		</property>
+	</bean>
+
+	<!-- カスタムJsonマッパー -->
+	<bean id="customJsonMapper" class="com.inswave.elfw.databind.DefaultCustomJsonObjectMapper">
+		<property name="elFilter">
+			<bean class="com.inswave.elfw.databind.ElCommVoJsonFilter" />
+		</property>
+		<property name="propertyNamingStrategy">
+			<bean class="com.inswave.elfw.databind.DefaultPropertyNamingStrategy" />
+		</property>
+		<property name="serializationInclusion">
+			<value type="com.fasterxml.jackson.annotation.JsonInclude.Include">NON_EMPTY</value>
+			<!--
+            // ALWAYS (デフォルト) : すべての値を出力する。
+            // NON_NULL : nullは除外する。
+            // NON_ABSENT : nullは除外する。参照型 (Java 8の'Optional'または{link
+			java.utl.concurrent.atomic.AtomicReference})の"absent"値、つまりnullではない値は除外する。
+            // NON_EMPTY : nullは除外する。absenceは除外する。 (3. NON_ABSENTを参照)
+			Collectionの場合、Mapの場合はisEmpty()がtrueなら除外する。Arrayの長さが0なら除外する。Stringの長さが0なら除外する。
+            // NON_DEFAULT : emptyは除外される。 (4. NON_EMPTYを参照) プリミティブ型がデフォルト値の場合は除外される。 (int / Integer : 0、boolean
+			/ Boolean : falseなど) Dateのtimestampが0Lなら除外する。
+            -->
+		</property>
+	</bean>
+
+	<!-- カスタムJsonマッパーオプション -->
+	<bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+		<property name="targetObject" ref="customJsonMapper" />
+		<property name="targetMethod" value="configure" />
+		<property name="arguments">
+			<list>
+				<!-- Jsonの項目がVOにない場合にエラーを無視する -->
+				<value type="com.fasterxml.jackson.databind.DeserializationFeature">
+					FAIL_ON_UNKNOWN_PROPERTIES</value>
+				<value>false</value>
+			</list>
+		</property>
+	</bean>
+
+</beans>
